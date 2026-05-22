@@ -51,7 +51,7 @@ export default function Dashboard({ handles }) {
     }
     
     loadDashboardData();
-  }, [handles]);
+  }, [handles.github, handles.leetcode, handles.codeforces, handles.codechef]);
 
   // Load rating history when chart platform changes or profiles are updated
   useEffect(() => {
