@@ -8,6 +8,49 @@ import {
 // Configuration
 const API_BASE_URL = import.meta.env.VITE_SERVER_URL || 'http://localhost:5001/api';
 
+// Clean full profile URLs into standard handles/usernames automatically
+export const cleanProfileHandle = (input) => {
+  if (!input) return '';
+  let trimmed = input.trim();
+  if (trimmed.endsWith('/')) {
+    trimmed = trimmed.slice(0, -1);
+  }
+  
+  if (trimmed.includes('github.com/')) {
+    return trimmed.split('github.com/').pop().split('/')[0];
+  }
+  
+  if (trimmed.includes('leetcode.com/')) {
+    let suffix = trimmed.split('leetcode.com/').pop();
+    if (suffix.startsWith('u/')) {
+      return suffix.slice(2).split('/')[0];
+    }
+    return suffix.split('/')[0];
+  }
+  
+  if (trimmed.includes('codeforces.com/')) {
+    let suffix = trimmed.split('codeforces.com/').pop();
+    if (suffix.includes('profile/')) {
+      return suffix.split('profile/').pop().split('/')[0];
+    }
+    return suffix.split('/')[0];
+  }
+  
+  if (trimmed.includes('codechef.com/')) {
+    let suffix = trimmed.split('codechef.com/').pop();
+    if (suffix.includes('users/')) {
+      return suffix.split('users/').pop().split('/')[0];
+    }
+    return suffix.split('/')[0];
+  }
+
+  if (trimmed.startsWith('http://') || trimmed.startsWith('https://')) {
+    return trimmed.split('/').pop();
+  }
+  
+  return trimmed;
+};
+
 // Utility: Cache results to avoid aggressive platform rate limits
 const cache = {
   get: (key) => {

@@ -4,7 +4,7 @@ import Calendar from './components/Calendar';
 import Roadmap from './components/Roadmap';
 import Settings from './components/Settings';
 import AuthGate from './components/AuthGate';
-import { syncUserDashboardToServer, fetchUserDashboardFromServer } from './services/api';
+import { syncUserDashboardToServer, fetchUserDashboardFromServer, cleanProfileHandle } from './services/api';
 import { 
   Terminal, 
   Calendar as CalendarIcon, 
@@ -49,7 +49,20 @@ export default function App() {
 
   const [handles, setHandles] = useState(() => {
     const saved = localStorage.getItem('devpulse_handles');
-    return saved ? JSON.parse(saved) : DEFAULT_HANDLES;
+    if (saved) {
+      try {
+        const parsed = JSON.parse(saved);
+        return {
+          github: cleanProfileHandle(parsed.github),
+          leetcode: cleanProfileHandle(parsed.leetcode),
+          codeforces: cleanProfileHandle(parsed.codeforces),
+          codechef: cleanProfileHandle(parsed.codechef)
+        };
+      } catch (e) {
+        return DEFAULT_HANDLES;
+      }
+    }
+    return DEFAULT_HANDLES;
   });
 
   const [sheets, setSheets] = useState(() => {
@@ -92,8 +105,14 @@ export default function App() {
     localStorage.setItem('devpulse_user', JSON.stringify(userData));
 
     if (userHandles) {
-      setHandles(userHandles);
-      localStorage.setItem('devpulse_handles', JSON.stringify(userHandles));
+      const cleanUserHandles = {
+        github: cleanProfileHandle(userHandles.github),
+        leetcode: cleanProfileHandle(userHandles.leetcode),
+        codeforces: cleanProfileHandle(userHandles.codeforces),
+        codechef: cleanProfileHandle(userHandles.codechef)
+      };
+      setHandles(cleanUserHandles);
+      localStorage.setItem('devpulse_handles', JSON.stringify(cleanUserHandles));
     }
 
     // Sync database data on successful login
@@ -102,8 +121,14 @@ export default function App() {
         const serverData = await fetchUserDashboardFromServer(userData.token);
         if (serverData && serverData.success) {
           if (serverData.handles) {
-            setHandles(serverData.handles);
-            localStorage.setItem('devpulse_handles', JSON.stringify(serverData.handles));
+            const cleanServerHandles = {
+              github: cleanProfileHandle(serverData.handles.github),
+              leetcode: cleanProfileHandle(serverData.handles.leetcode),
+              codeforces: cleanProfileHandle(serverData.handles.codeforces),
+              codechef: cleanProfileHandle(serverData.handles.codechef)
+            };
+            setHandles(cleanServerHandles);
+            localStorage.setItem('devpulse_handles', JSON.stringify(cleanServerHandles));
           }
           if (serverData.sheets && Object.keys(serverData.sheets).length > 0) {
             setSheets(serverData.sheets);

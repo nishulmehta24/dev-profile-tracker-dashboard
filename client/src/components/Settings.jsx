@@ -11,7 +11,7 @@ import {
   CheckCircle,
   HelpCircle
 } from 'lucide-react';
-
+import { cleanProfileHandle } from '../services/api';
 export default function Settings({ handles, onSaveHandles, user }) {
   // Input fields state
   const [github, setGithub] = useState(handles.github || '');
@@ -67,7 +67,22 @@ export default function Settings({ handles, onSaveHandles, user }) {
 
   const handleSave = (e) => {
     e.preventDefault();
-    onSaveHandles({ github, leetcode, codeforces, codechef });
+    const cleanGithub = cleanProfileHandle(github);
+    const cleanLeetcode = cleanProfileHandle(leetcode);
+    const cleanCodeforces = cleanProfileHandle(codeforces);
+    const cleanCodechef = cleanProfileHandle(codechef);
+
+    setGithub(cleanGithub);
+    setLeetcode(cleanLeetcode);
+    setCodeforces(cleanCodeforces);
+    setCodechef(cleanCodechef);
+
+    onSaveHandles({
+      github: cleanGithub,
+      leetcode: cleanLeetcode,
+      codeforces: cleanCodeforces,
+      codechef: cleanCodechef
+    });
     localStorage.setItem('devpulse_server_url', serverUrl);
     setSuccessMsg(true);
     setTimeout(() => setSuccessMsg(false), 3000);
