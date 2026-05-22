@@ -39,18 +39,30 @@ export default function Dashboard({ handles }) {
 
       setProfiles(data);
       setHeatmap(generateMockHeatmap());
-      setRatingHistory(generateMockRatingHistory(activeChartTab));
+      
+      const activeProfile = data[activeChartTab];
+      if (activeProfile && Array.isArray(activeProfile.contestHistory) && activeProfile.contestHistory.length > 0) {
+        setRatingHistory(activeProfile.contestHistory);
+      } else {
+        setRatingHistory(generateMockRatingHistory(activeChartTab));
+      }
+      
       setLoading(false);
     }
     
     loadDashboardData();
   }, [handles]);
 
-  // Load rating history when chart platform changes
+  // Load rating history when chart platform changes or profiles are updated
   useEffect(() => {
-    setRatingHistory(generateMockRatingHistory(activeChartTab));
+    const activeProfile = profiles[activeChartTab];
+    if (activeProfile && Array.isArray(activeProfile.contestHistory) && activeProfile.contestHistory.length > 0) {
+      setRatingHistory(activeProfile.contestHistory);
+    } else {
+      setRatingHistory(generateMockRatingHistory(activeChartTab));
+    }
     setSelectedPoint(null);
-  }, [activeChartTab]);
+  }, [activeChartTab, profiles]);
 
   if (loading) {
     return (
@@ -141,16 +153,34 @@ export default function Dashboard({ handles }) {
     const height = 260;
     const padding = 45;
 
-    const ratings = ratingHistory.map(d => d.rating);
+    // Synthesize starting baseline for 1-contest profiles to render a beautiful slope line
+    let displayHistory = [...ratingHistory];
+    if (displayHistory.length === 1) {
+      const platformBaseRating = activeChartTab === 'leetcode' ? 1500 : 1200;
+      displayHistory.unshift({
+        contestName: 'Initial Rating',
+        date: 'Start',
+        rating: platformBaseRating,
+        rank: '-'
+      });
+    }
+
+    const ratings = displayHistory.map(d => d.rating);
     const minRating = Math.min(...ratings) - 80;
     const maxRatingVal = Math.max(...ratings) + 80;
 
-    const getX = (index) => padding + (index / (ratingHistory.length - 1)) * (width - padding * 2);
-    const getY = (rating) => height - padding - ((rating - minRating) / (maxRatingVal - minRating)) * (height - padding * 2);
+    const divisorX = displayHistory.length > 1 ? displayHistory.length - 1 : 1;
+    const getX = (index) => padding + (index / divisorX) * (width - padding * 2);
+
+    const ratingDiff = maxRatingVal - minRating;
+    const getY = (rating) => {
+      if (ratingDiff === 0) return height / 2;
+      return height - padding - ((rating - minRating) / ratingDiff) * (height - padding * 2);
+    };
 
     // Build the SVG Path string
     let pathData = '';
-    ratingHistory.forEach((point, idx) => {
+    displayHistory.forEach((point, idx) => {
       const x = getX(idx);
       const y = getY(point.rating);
       if (idx === 0) {
@@ -158,7 +188,7 @@ export default function Dashboard({ handles }) {
       } else {
         // Curve calculation (smooth cubic bezier approximation)
         const prevX = getX(idx - 1);
-        const prevY = getY(ratingHistory[idx - 1].rating);
+        const prevY = getY(displayHistory[idx - 1].rating);
         const cpX1 = prevX + (x - prevX) / 2;
         const cpY1 = prevY;
         const cpX2 = prevX + (x - prevX) / 2;
@@ -168,7 +198,7 @@ export default function Dashboard({ handles }) {
     });
 
     // Build area fill path
-    const fillPathData = `${pathData} L ${getX(ratingHistory.length - 1)} ${height - padding} L ${getX(0)} ${height - padding} Z`;
+    const fillPathData = `${pathData} L ${getX(displayHistory.length - 1)} ${height - padding} L ${getX(0)} ${height - padding} Z`;
 
     const getPlatformColor = () => {
       if (activeChartTab === 'leetcode') return 'var(--brand-leetcode)';
@@ -222,8 +252,8 @@ export default function Dashboard({ handles }) {
           })}
 
           {/* X Axis labels */}
-          {ratingHistory.map((point, idx) => {
-            if (idx % 2 !== 0) return null; // alternate to avoid overcrowding
+          {displayHistory.map((point, idx) => {
+            if (idx % 2 !== 0 && displayHistory.length > 5) return null; // alternate to avoid overcrowding on long lists
             return (
               <text 
                 key={idx}
@@ -253,7 +283,7 @@ export default function Dashboard({ handles }) {
           />
 
           {/* Interactive dots */}
-          {ratingHistory.map((point, idx) => {
+          {displayHistory.map((point, idx) => {
             const x = getX(idx);
             const y = getY(point.rating);
             const isSelected = selectedPoint && selectedPoint.index === idx;
@@ -307,6 +337,11 @@ export default function Dashboard({ handles }) {
       </div>
     );
   };
+
+  const activeProfile = profiles[activeChartTab];
+  const isRealData = activeProfile && 
+                     Array.isArray(activeProfile.contestHistory) && 
+                     activeProfile.contestHistory.length > 0;
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: '32px' }}>
@@ -514,8 +549,51 @@ export default function Dashboard({ handles }) {
       <div className="glass-card" style={{ padding: '24px' }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '16px', marginBottom: '24px' }}>
           <div>
-            <h3 style={{ fontSize: '18px', color: '#fff', marginBottom: '4px' }}>Rating Analytics Timeline</h3>
-            <p style={{ fontSize: '13px', color: 'var(--text-secondary)' }}>Track rating velocity and growth trends from official contests.</p>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+              <h3 style={{ fontSize: '18px', color: '#fff', margin: 0 }}>Rating Analytics Timeline</h3>
+              {isRealData ? (
+                <span style={{ 
+                  display: 'inline-flex', 
+                  alignItems: 'center', 
+                  gap: '5px', 
+                  padding: '3px 8px', 
+                  borderRadius: '12px', 
+                  background: 'rgba(16, 185, 129, 0.15)', 
+                  border: '1px solid rgba(16, 185, 129, 0.3)', 
+                  color: '#34d399', 
+                  fontSize: '10px', 
+                  fontWeight: 700, 
+                  textTransform: 'uppercase',
+                  letterSpacing: '0.05em',
+                  boxShadow: '0 0 10px rgba(16, 185, 129, 0.1)'
+                }}>
+                  <span style={{ width: '5px', height: '5px', borderRadius: '50%', background: '#10b981', boxShadow: '0 0 6px #10b981' }}></span>
+                  Live Data
+                </span>
+              ) : (
+                <span style={{ 
+                  display: 'inline-flex', 
+                  alignItems: 'center', 
+                  gap: '5px', 
+                  padding: '3px 8px', 
+                  borderRadius: '12px', 
+                  background: 'rgba(139, 92, 246, 0.15)', 
+                  border: '1px solid rgba(139, 92, 246, 0.3)', 
+                  color: '#a78bfa', 
+                  fontSize: '10px', 
+                  fontWeight: 700, 
+                  textTransform: 'uppercase',
+                  letterSpacing: '0.05em',
+                  boxShadow: '0 0 10px rgba(139, 92, 246, 0.1)'
+                }}>
+                  <span style={{ width: '5px', height: '5px', borderRadius: '50%', background: '#8b5cf6', boxShadow: '0 0 6px #8b5cf6' }}></span>
+                  Demo Simulator
+                </span>
+              )}
+            </div>
+            <p style={{ fontSize: '13px', color: 'var(--text-secondary)', marginTop: '4px', marginBottom: 0 }}>
+              Track rating velocity and growth trends from official contests.
+            </p>
           </div>
           <div className="glass-container" style={{ display: 'flex', gap: '4px', padding: '4px', borderRadius: '10px' }}>
             {['codeforces', 'leetcode', 'codechef'].map(plat => (

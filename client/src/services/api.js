@@ -109,12 +109,38 @@ export const fetchCodeforcesProfile = async (handle) => {
   if (cachedData) return cachedData;
 
   try {
-    const res = await fetch(`https://codeforces.com/api/user.info?handles=${handle}`);
-    if (!res.ok) throw new Error('Codeforces user not found');
-    const responseData = await res.json();
+    const [infoRes, ratingRes] = await Promise.all([
+      fetch(`https://codeforces.com/api/user.info?handles=${handle}`),
+      fetch(`https://codeforces.com/api/user.rating?handle=${handle}`).catch(e => {
+        console.warn('CF rating fetch failed:', e);
+        return { ok: false };
+      })
+    ]);
+
+    if (!infoRes.ok) throw new Error('Codeforces user not found');
+    const infoData = await infoRes.json();
     
-    if (responseData.status !== 'OK') throw new Error('CF API Status Fail');
-    const data = responseData.result[0];
+    if (infoData.status !== 'OK') throw new Error('CF API Status Fail');
+    const data = infoData.result[0];
+    
+    let contestHistory = [];
+    if (ratingRes && ratingRes.ok) {
+      try {
+        const ratingData = await ratingRes.json();
+        if (ratingData.status === 'OK' && Array.isArray(ratingData.result)) {
+          contestHistory = ratingData.result.map(item => ({
+            contestName: item.contestName || 'Codeforces Round',
+            date: item.ratingUpdateTimeSeconds 
+              ? new Date(item.ratingUpdateTimeSeconds * 1000).toLocaleString('default', { month: 'short', year: '2-digit' })
+              : '',
+            rating: item.newRating,
+            rank: item.rank
+          }));
+        }
+      } catch (e) {
+        console.warn('Codeforces rating parse failed:', e);
+      }
+    }
     
     const profile = {
       handle: data.handle,
@@ -125,7 +151,8 @@ export const fetchCodeforcesProfile = async (handle) => {
       contribution: data.contribution || 0,
       solvedTotal: Math.floor(Math.random() * 250) + 120, // CF requires user.status query to get unique solved problems
       activeStreak: Math.floor(Math.random() * 12) + 2,
-      profileUrl: `https://codeforces.com/profile/${data.handle}`
+      profileUrl: `https://codeforces.com/profile/${data.handle}`,
+      contestHistory
     };
     
     cache.set(cacheKey, profile);
@@ -179,7 +206,19 @@ export const fetchLeetcodeProfile = async (handle) => {
         ? `${Math.floor((solvedData.acSubmissionNum[0].count / solvedData.totalSubmissionNum[0].count) * 100)}%`
         : '52%',
       activeStreak: Math.floor(Math.random() * 12) + 3,
-      profileUrl: `https://leetcode.com/u/${handle}`
+      profileUrl: `https://leetcode.com/u/${handle}`,
+      contestHistory: Array.isArray(contestData.contestParticipation)
+        ? contestData.contestParticipation
+            .filter(item => item.attended)
+            .map(item => ({
+              contestName: item.contest?.title || 'LeetCode Contest',
+              date: item.contest?.startTime 
+                ? new Date(item.contest.startTime * 1000).toLocaleString('default', { month: 'short', year: '2-digit' })
+                : '',
+              rating: Math.round(item.rating),
+              rank: item.ranking
+            }))
+        : []
     };
     
     cache.set(cacheKey, profile);
