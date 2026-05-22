@@ -23,7 +23,12 @@ export default function AuthGate({ onAuthSuccess }) {
   
   // Server connectivity health check
   const [serverUrl, setServerUrl] = useState(() => {
-    return localStorage.getItem('devpulse_server_url') || 'http://localhost:5001/api';
+    const saved = localStorage.getItem('devpulse_server_url');
+    if (saved && saved.includes('localhost:5000')) {
+      localStorage.setItem('devpulse_server_url', 'http://localhost:5001/api');
+      return 'http://localhost:5001/api';
+    }
+    return saved || 'http://localhost:5001/api';
   });
   const [serverConnected, setServerConnected] = useState(false);
   const [checkingServer, setCheckingServer] = useState(true);
