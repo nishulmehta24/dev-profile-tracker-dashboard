@@ -1,0 +1,21 @@
+{
+  "name": "devpulse-monorepo",
+  "version": "1.0.0",
+  "description": "Unified Developer Profile & Contest Calendar Dashboard - MERN Monorepo",
+  "main": "server/server.js",
+  "scripts": {
+    "install-all": "npm install --prefix client && npm install --prefix server",
+    "client": "npm run dev --prefix client",
+    "server": "npm run dev --prefix server",
+    "dev": "npx concurrently \"npm run client\" \"npm run server\""
+  },
+  "keywords": [
+    "mern",
+    "monorepo",
+    "react",
+    "express",
+    "mongodb"
+  ],
+  "author": "Nishul Mehta",
+  "license": "ISC"
+}

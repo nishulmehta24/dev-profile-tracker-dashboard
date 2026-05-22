@@ -1,0 +1,12 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100" width="100" height="100">
+  <defs>
+    <linearGradient id="glowGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#8b5cf6" />
+      <stop offset="100%" stop-color="#6d28d9" />
+    </linearGradient>
+  </defs>
+  <!-- Background Circle with border -->
+  <circle cx="50" cy="50" r="46" fill="#0a0a0f" stroke="url(#glowGrad)" stroke-width="3" />
+  <!-- Glowing pulse geometric lightning bolt path -->
+  <path d="M 52 18 L 30 52 L 48 52 L 40 82 L 70 44 L 50 44 Z" fill="url(#glowGrad)" filter="drop-shadow(0px 3px 6px rgba(139, 92, 246, 0.5))" />
+</svg>
