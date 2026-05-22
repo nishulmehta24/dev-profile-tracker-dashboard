@@ -34,7 +34,7 @@ jobs:
         run: npm run build
         working-directory: client
         env:
-          VITE_SERVER_URL: 'https://devpulse-backend.onrender.com/api' # Placholder for their eventual Render backend domain
+          VITE_SERVER_URL: 'https://devpulse-backend-t8zt.onrender.com/api'
 
       - name: Deploy Compiled static assets to GitHub Pages
         uses: JamesIves/github-pages-deploy-action@v4
