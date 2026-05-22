@@ -10,6 +10,6 @@ services:
       - key: PORT
         value: 5001
       - key: MONGO_URI
-        placeholder: "Enter your MongoDB Atlas Connection String here"
+        sync: false
       - key: JWT_SECRET
-        placeholder: "Enter a secure random JWT secret key here"
+        generateValue: true
