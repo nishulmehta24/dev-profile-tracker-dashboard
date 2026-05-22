@@ -170,25 +170,13 @@ export const fetchLeetcodeProfile = async (handle) => {
   if (cachedData) return cachedData;
 
   try {
-    const [profileRes, solvedRes, contestRes] = await Promise.all([
-      fetch(`https://alfa-leetcode-api.onrender.com/${handle}`),
-      fetch(`https://alfa-leetcode-api.onrender.com/${handle}/solved`),
-      fetch(`https://alfa-leetcode-api.onrender.com/${handle}/contest`)
-    ]);
+    const res = await fetch(`${API_BASE_URL}/leetcode-proxy/${handle}`);
+    if (!res.ok) throw new Error('LeetCode proxy returned error status');
     
-    if (!profileRes.ok || !solvedRes.ok) throw new Error('LeetCode API returned error');
-    
-    const profileData = await profileRes.json();
-    const solvedData = await solvedRes.json();
-    
-    let contestData = {};
-    if (contestRes.ok) {
-      try {
-        contestData = await contestRes.json();
-      } catch (e) {
-        console.warn('Contest data parse failed:', e);
-      }
-    }
+    const dataObj = await res.json();
+    if (!dataObj.success) throw new Error('LeetCode proxy flagged error');
+
+    const { profileData, solvedData, contestData } = dataObj;
     
     if (profileData.errors || solvedData.errors) throw new Error('LeetCode GraphQL returned error');
     

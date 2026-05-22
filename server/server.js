@@ -26,6 +26,44 @@ app.use(cors({
 app.use('/api/auth', authRoutes);
 app.use('/api/dashboard', dashboardRoutes);
 
+// LeetCode CORS Proxy Route (Public, bypasses browser CORS restrictions)
+app.get('/api/leetcode-proxy/:handle', async (req, res) => {
+  const { handle } = req.params;
+  try {
+    const [profileRes, solvedRes, contestRes] = await Promise.all([
+      fetch(`https://alfa-leetcode-api.onrender.com/${handle}`),
+      fetch(`https://alfa-leetcode-api.onrender.com/${handle}/solved`),
+      fetch(`https://alfa-leetcode-api.onrender.com/${handle}/contest`)
+    ]);
+
+    if (!profileRes.ok || !solvedRes.ok) {
+      return res.status(404).json({ success: false, error: 'LeetCode profile data not found' });
+    }
+
+    const profileData = await profileRes.json();
+    const solvedData = await solvedRes.json();
+    
+    let contestData = {};
+    if (contestRes.ok) {
+      try {
+        contestData = await contestRes.json();
+      } catch (e) {
+        console.warn('Contest data parse failed on backend:', e);
+      }
+    }
+
+    res.json({
+      success: true,
+      profileData,
+      solvedData,
+      contestData
+    });
+  } catch (error) {
+    console.error('LeetCode proxy server-side error:', error);
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
 // Public Health Check Status Endpoint (Pinged by Frontend Settings)
 app.get('/api/status', (req, res) => {
   const dbState = require('mongoose').connection.readyState;
