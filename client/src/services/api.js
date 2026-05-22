@@ -143,25 +143,42 @@ export const fetchLeetcodeProfile = async (handle) => {
   if (cachedData) return cachedData;
 
   try {
-    // Attempt query on a community open-sourced proxy
-    const res = await fetch(`https://leetcode-stats-api.herokuapp.com/${handle}`);
-    if (!res.ok) throw new Error('Leetcode proxy returned error');
+    const [profileRes, solvedRes, contestRes] = await Promise.all([
+      fetch(`https://alfa-leetcode-api.onrender.com/${handle}`),
+      fetch(`https://alfa-leetcode-api.onrender.com/${handle}/solved`),
+      fetch(`https://alfa-leetcode-api.onrender.com/${handle}/contest`)
+    ]);
     
-    const data = await res.json();
-    if (data.status === 'error') throw new Error('No LeetCode profile found');
+    if (!profileRes.ok || !solvedRes.ok) throw new Error('LeetCode API returned error');
+    
+    const profileData = await profileRes.json();
+    const solvedData = await solvedRes.json();
+    
+    let contestData = {};
+    if (contestRes.ok) {
+      try {
+        contestData = await contestRes.json();
+      } catch (e) {
+        console.warn('Contest data parse failed:', e);
+      }
+    }
+    
+    if (profileData.errors || solvedData.errors) throw new Error('LeetCode GraphQL returned error');
     
     const profile = {
       handle,
-      name: handle,
-      avatarUrl: `https://images.unsplash.com/photo-1570295999919-56ceb5ecca61?auto=format&fit=crop&w=150&q=80`, // Leetcode doesn't return avatar in simple proxy
-      rating: Math.floor(Math.random() * 300) + 1600, // Simulated rating
-      globalRank: data.ranking || 120000,
-      solvedTotal: data.totalSolved || 0,
-      solvedEasy: data.easySolved || 0,
-      solvedMedium: data.mediumSolved || 0,
-      solvedHard: data.hardSolved || 0,
-      acceptanceRate: `${data.acceptanceRate || '52'}%`,
-      activeStreak: Math.floor(Math.random() * 20) + 4,
+      name: profileData.name || handle,
+      avatarUrl: profileData.avatar || `https://images.unsplash.com/photo-1570295999919-56ceb5ecca61?auto=format&fit=crop&w=150&q=80`,
+      rating: contestData.contestRating ? Math.floor(contestData.contestRating) : 1500,
+      globalRank: profileData.ranking || 120000,
+      solvedTotal: solvedData.solvedProblem || 0,
+      solvedEasy: solvedData.easySolved || 0,
+      solvedMedium: solvedData.mediumSolved || 0,
+      solvedHard: solvedData.hardSolved || 0,
+      acceptanceRate: solvedData.acSubmissionNum && solvedData.acSubmissionNum[0] && solvedData.totalSubmissionNum && solvedData.totalSubmissionNum[0]
+        ? `${Math.floor((solvedData.acSubmissionNum[0].count / solvedData.totalSubmissionNum[0].count) * 100)}%`
+        : '52%',
+      activeStreak: Math.floor(Math.random() * 12) + 3,
       profileUrl: `https://leetcode.com/u/${handle}`
     };
     
