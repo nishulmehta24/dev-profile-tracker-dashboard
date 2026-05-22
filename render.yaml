@@ -1,0 +1,15 @@
+services:
+  - type: web
+    name: devpulse-backend
+    env: node
+    plan: free
+    rootDir: server
+    buildCommand: npm install
+    startCommand: node server.js
+    envVars:
+      - key: PORT
+        value: 5001
+      - key: MONGO_URI
+        placeholder: "Enter your MongoDB Atlas Connection String here"
+      - key: JWT_SECRET
+        placeholder: "Enter a secure random JWT secret key here"
