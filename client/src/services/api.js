@@ -6,7 +6,7 @@ import {
 } from './mockData';
 
 // Configuration
-const API_BASE_URL = import.meta.env.VITE_SERVER_URL || 'http://localhost:5000/api';
+const API_BASE_URL = import.meta.env.VITE_SERVER_URL || 'http://localhost:5001/api';
 
 // Utility: Cache results to avoid aggressive platform rate limits
 const cache = {

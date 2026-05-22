@@ -21,7 +21,7 @@ export default function Settings({ handles, onSaveHandles, user }) {
 
   // Backend Integration state
   const [serverUrl, setServerUrl] = useState(() => {
-    return localStorage.getItem('devpulse_server_url') || 'http://localhost:5000/api';
+    return localStorage.getItem('devpulse_server_url') || 'http://localhost:5001/api';
   });
   const [serverConnected, setServerConnected] = useState(false);
   const [checkingServer, setCheckingServer] = useState(false);
@@ -271,7 +271,7 @@ export default function Settings({ handles, onSaveHandles, user }) {
               className="glow-input"
               value={serverUrl}
               onChange={(e) => setServerUrl(e.target.value)}
-              placeholder="e.g. http://localhost:5000/api"
+              placeholder="e.g. http://localhost:5001/api"
             />
           </div>
 
