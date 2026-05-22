@@ -262,9 +262,11 @@ export const fetchCodechefProfile = async (handle) => {
   }
 };
 
-// Real Heatmap: Merge GitHub events + LeetCode submission calendar
-export const fetchRealHeatmap = async (githubHandle, leetcodeHandle) => {
-  const cacheKey = `heatmap_${githubHandle}_${leetcodeHandle}`;
+// Real Heatmap: Fetch activity for an individual platform
+export const fetchRealHeatmap = async (platform, handle) => {
+  if (!handle) return generateMockHeatmap();
+  
+  const cacheKey = `heatmap_${platform}_${handle}`;
   const cachedData = cache.get(cacheKey);
   if (cachedData) return cachedData;
 
@@ -279,19 +281,9 @@ export const fetchRealHeatmap = async (githubHandle, leetcodeHandle) => {
   }
 
   try {
-    // Fetch GitHub events and LeetCode calendar in parallel via backend proxies
-    const [ghRes, lcRes] = await Promise.all([
-      githubHandle
-        ? fetch(`${API_BASE_URL}/github-events/${githubHandle}`).catch(() => null)
-        : null,
-      leetcodeHandle
-        ? fetch(`${API_BASE_URL}/leetcode-calendar/${leetcodeHandle}`).catch(() => null)
-        : null
-    ]);
-
-    // Merge GitHub events
-    if (ghRes && ghRes.ok) {
-      try {
+    if (platform === 'github') {
+      const ghRes = await fetch(`${API_BASE_URL}/github-events/${handle}`).catch(() => null);
+      if (ghRes && ghRes.ok) {
         const ghData = await ghRes.json();
         if (ghData.success && ghData.events) {
           Object.entries(ghData.events).forEach(([date, count]) => {
@@ -300,15 +292,12 @@ export const fetchRealHeatmap = async (githubHandle, leetcodeHandle) => {
             }
           });
         }
-      } catch (e) { console.warn('GitHub heatmap parse error:', e); }
-    }
-
-    // Merge LeetCode calendar
-    if (lcRes && lcRes.ok) {
-      try {
+      }
+    } else if (platform === 'leetcode') {
+      const lcRes = await fetch(`${API_BASE_URL}/leetcode-calendar/${handle}`).catch(() => null);
+      if (lcRes && lcRes.ok) {
         const lcData = await lcRes.json();
         if (lcData.success && lcData.calendar) {
-          // The calendar comes as submissionCalendar: { "unix_timestamp": count }
           const cal = lcData.calendar.submissionCalendar;
           if (cal) {
             const parsed = typeof cal === 'string' ? JSON.parse(cal) : cal;
@@ -320,10 +309,10 @@ export const fetchRealHeatmap = async (githubHandle, leetcodeHandle) => {
             });
           }
         }
-      } catch (e) { console.warn('LeetCode calendar parse error:', e); }
+      }
     }
   } catch (err) {
-    console.warn('Heatmap fetch failed, returning partial data:', err);
+    console.warn(`Heatmap fetch failed for ${platform}, returning partial data:`, err);
   }
 
   // Convert to array format
@@ -337,7 +326,7 @@ export const fetchRealHeatmap = async (githubHandle, leetcodeHandle) => {
     cache.set(cacheKey, heatmapData, 30 * 60 * 1000);
   }
 
-  return heatmapData;
+  return hasRealData ? heatmapData : generateMockHeatmap();
 };
 
 // 3. Contests Schedule Aggregator

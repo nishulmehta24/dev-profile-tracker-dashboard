@@ -21,7 +21,8 @@ import {
 export default function Dashboard({ handles }) {
   const [profiles, setProfiles] = useState({});
   const [loading, setLoading] = useState(true);
-  const [heatmap, setHeatmap] = useState([]);
+  const [heatmaps, setHeatmaps] = useState({ github: [], leetcode: [] });
+  const [activeHeatmapTab, setActiveHeatmapTab] = useState('github');
   const [activeChartTab, setActiveChartTab] = useState('codeforces');
   const [ratingHistory, setRatingHistory] = useState([]);
   const [selectedPoint, setSelectedPoint] = useState(null);
@@ -41,16 +42,18 @@ export default function Dashboard({ handles }) {
 
       setProfiles(data);
 
-      // Fetch real heatmap from GitHub events + LeetCode calendar
-      const realHeatmap = await fetchRealHeatmap(handles.github, handles.leetcode);
-      const hasRealActivity = realHeatmap.some(d => d.count > 0);
-      setHeatmap(hasRealActivity ? realHeatmap : generateMockHeatmap());
+      // Fetch individual heatmaps for Github and Leetcode
+      const ghHeatmap = await fetchRealHeatmap('github', handles.github);
+      const lcHeatmap = await fetchRealHeatmap('leetcode', handles.leetcode);
+      setHeatmaps({ github: ghHeatmap, leetcode: lcHeatmap });
       
       const activeProfile = data[activeChartTab];
       if (activeProfile && Array.isArray(activeProfile.contestHistory) && activeProfile.contestHistory.length > 0) {
         setRatingHistory(activeProfile.contestHistory);
-      } else {
+      } else if (activeChartTab !== 'codechef') {
         setRatingHistory(generateMockRatingHistory(activeChartTab));
+      } else {
+        setRatingHistory([]); // No demo data for CodeChef
       }
       
       setLoading(false);
@@ -64,8 +67,10 @@ export default function Dashboard({ handles }) {
     const activeProfile = profiles[activeChartTab];
     if (activeProfile && Array.isArray(activeProfile.contestHistory) && activeProfile.contestHistory.length > 0) {
       setRatingHistory(activeProfile.contestHistory);
-    } else {
+    } else if (activeChartTab !== 'codechef') {
       setRatingHistory(generateMockRatingHistory(activeChartTab));
+    } else {
+      setRatingHistory([]);
     }
     setSelectedPoint(null);
   }, [activeChartTab, profiles]);
@@ -101,15 +106,16 @@ export default function Dashboard({ handles }) {
 
   // SVG Heatmap Grid parameters
   const renderHeatmap = () => {
-    if (!heatmap.length) return null;
+    const activeHeatmap = heatmaps[activeHeatmapTab] || [];
+    if (!activeHeatmap.length) return null;
     
     // Group heatmap into 53 weeks (columns) x 7 days (rows)
     const weeks = [];
     let currentWeek = [];
     
-    heatmap.forEach((day, index) => {
+    activeHeatmap.forEach((day, index) => {
       currentWeek.push(day);
-      if (currentWeek.length === 7 || index === heatmap.length - 1) {
+      if (currentWeek.length === 7 || index === activeHeatmap.length - 1) {
         weeks.push(currentWeek);
         currentWeek = [];
       }
@@ -117,10 +123,17 @@ export default function Dashboard({ handles }) {
 
     const getGlowClass = (count) => {
       if (count === 0) return 'rgba(255, 255, 255, 0.03)';
-      if (count <= 2) return 'rgba(139, 92, 246, 0.25)';
-      if (count <= 5) return 'rgba(139, 92, 246, 0.5)';
-      if (count <= 8) return 'rgba(139, 92, 246, 0.75)';
-      return '#8b5cf6'; // highest activity
+      if (activeHeatmapTab === 'github') {
+        if (count <= 2) return 'rgba(16, 185, 129, 0.25)';
+        if (count <= 5) return 'rgba(16, 185, 129, 0.5)';
+        if (count <= 8) return 'rgba(16, 185, 129, 0.75)';
+        return '#10b981';
+      } else {
+        if (count <= 2) return 'rgba(245, 158, 11, 0.25)';
+        if (count <= 5) return 'rgba(245, 158, 11, 0.5)';
+        if (count <= 8) return 'rgba(245, 158, 11, 0.75)';
+        return '#f59e0b';
+      }
     };
 
     return (
@@ -153,7 +166,16 @@ export default function Dashboard({ handles }) {
 
   // Custom Interactive SVG Line Chart builder
   const renderRatingChart = () => {
-    if (!ratingHistory.length) return null;
+    if (!ratingHistory.length) {
+      return (
+        <div style={{ padding: '60px 20px', textAlign: 'center', color: 'var(--text-muted)' }}>
+          <div style={{ display: 'flex', justifyContent: 'center', marginBottom: '16px', color: 'rgba(255,255,255,0.1)' }}>
+             <Award size={48} />
+          </div>
+          <p style={{ margin: 0, fontSize: '15px' }}>No official rating history available for this platform.</p>
+        </div>
+      );
+    }
 
     const width = 800;
     const height = 260;
@@ -532,20 +554,45 @@ export default function Dashboard({ handles }) {
         </div>
       </div>
 
-      {/* 3. MERGED CONTRIBUTIONS HEATMAP */}
+      {/* 3. PLATFORM CONTRIBUTIONS HEATMAP */}
       <div className="glass-card" style={{ padding: '24px' }}>
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '16px', marginBottom: '20px' }}>
           <div>
-            <h3 style={{ fontSize: '18px', color: '#fff', marginBottom: '4px' }}>Unified Coding Streak Calendar</h3>
-            <p style={{ fontSize: '13px', color: 'var(--text-secondary)' }}>Aggregates commits on GitHub and submissions on LeetCode/Codeforces over the past year.</p>
+            <h3 style={{ fontSize: '18px', color: '#fff', marginBottom: '4px' }}>Activity Heatmap</h3>
+            <p style={{ fontSize: '13px', color: 'var(--text-secondary)' }}>Track individual platform contributions over the past year.</p>
           </div>
-          <div style={{ display: 'flex', gap: '8px', fontSize: '11px', color: 'var(--text-muted)', alignItems: 'center' }}>
-            <span>Less</span>
-            <div style={{ width: '8px', height: '8px', borderRadius: '1.5px', background: 'rgba(255,255,255,0.03)' }}></div>
-            <div style={{ width: '8px', height: '8px', borderRadius: '1.5px', background: 'rgba(139, 92, 246, 0.3)' }}></div>
-            <div style={{ width: '8px', height: '8px', borderRadius: '1.5px', background: 'rgba(139, 92, 246, 0.6)' }}></div>
-            <div style={{ width: '8px', height: '8px', borderRadius: '1.5px', background: 'rgba(139, 92, 246, 0.9)' }}></div>
-            <span>More</span>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
+            <div className="glass-container" style={{ display: 'flex', gap: '4px', padding: '4px', borderRadius: '10px' }}>
+              {['github', 'leetcode'].map(plat => (
+                <button
+                  key={plat}
+                  onClick={() => setActiveHeatmapTab(plat)}
+                  style={{
+                    background: activeHeatmapTab === plat ? 'var(--bg-tertiary)' : 'transparent',
+                    border: 'none',
+                    color: activeHeatmapTab === plat ? '#fff' : 'var(--text-secondary)',
+                    padding: '6px 14px',
+                    borderRadius: '7px',
+                    fontSize: '12px',
+                    fontWeight: 700,
+                    textTransform: 'capitalize',
+                    cursor: 'pointer',
+                    transition: 'var(--transition-fast)'
+                  }}
+                >
+                  {plat === 'github' ? 'GitHub' : 'LeetCode'}
+                </button>
+              ))}
+            </div>
+            
+            <div style={{ display: 'flex', gap: '8px', fontSize: '11px', color: 'var(--text-muted)', alignItems: 'center' }}>
+              <span>Less</span>
+              <div style={{ width: '8px', height: '8px', borderRadius: '1.5px', background: 'rgba(255,255,255,0.03)' }}></div>
+              <div style={{ width: '8px', height: '8px', borderRadius: '1.5px', background: activeHeatmapTab === 'github' ? 'rgba(16, 185, 129, 0.3)' : 'rgba(245, 158, 11, 0.3)' }}></div>
+              <div style={{ width: '8px', height: '8px', borderRadius: '1.5px', background: activeHeatmapTab === 'github' ? 'rgba(16, 185, 129, 0.6)' : 'rgba(245, 158, 11, 0.6)' }}></div>
+              <div style={{ width: '8px', height: '8px', borderRadius: '1.5px', background: activeHeatmapTab === 'github' ? 'rgba(16, 185, 129, 0.9)' : 'rgba(245, 158, 11, 0.9)' }}></div>
+              <span>More</span>
+            </div>
           </div>
         </div>
         {renderHeatmap()}
