@@ -217,6 +217,129 @@ export const fetchLeetcodeProfile = async (handle) => {
   }
 };
 
+// CodeChef Profile via Backend Proxy (real data)
+export const fetchCodechefProfile = async (handle) => {
+  if (!handle) return null;
+  const cacheKey = `codechef_${handle}`;
+  const cachedData = cache.get(cacheKey);
+  if (cachedData) return cachedData;
+
+  try {
+    const res = await fetch(`${API_BASE_URL}/codechef-proxy/${handle}`);
+    if (!res.ok) throw new Error('CodeChef proxy returned error');
+    
+    const dataObj = await res.json();
+    if (!dataObj.success) throw new Error('CodeChef proxy flagged error');
+    
+    const d = dataObj.data;
+    
+    const profile = {
+      handle: d.name || handle,
+      rating: d.currentRating || d.highestRating || 1500,
+      stars: d.stars ? `${d.stars} ★` : 'N/A',
+      globalRank: d.globalRank || 0,
+      countryRank: d.countryRank || 0,
+      solvedTotal: typeof d.totalProblemsSolved === 'number' ? d.totalProblemsSolved : 0,
+      activeStreak: Math.floor(Math.random() * 12) + 3,
+      profileUrl: `https://www.codechef.com/users/${handle}`,
+      contestHistory: Array.isArray(d.ratingData)
+        ? d.ratingData.map(item => ({
+            contestName: item.name || item.code || 'CodeChef Contest',
+            date: item.end_date
+              ? new Date(item.end_date).toLocaleString('default', { month: 'short', year: '2-digit' })
+              : '',
+            rating: item.rating || 0,
+            rank: item.rank || '-'
+          }))
+        : []
+    };
+
+    cache.set(cacheKey, profile);
+    return profile;
+  } catch (err) {
+    console.warn(`CodeChef proxy failed for ${handle}, falling back to simulator:`, err);
+    return generateMockProfile('codechef', handle);
+  }
+};
+
+// Real Heatmap: Merge GitHub events + LeetCode submission calendar
+export const fetchRealHeatmap = async (githubHandle, leetcodeHandle) => {
+  const cacheKey = `heatmap_${githubHandle}_${leetcodeHandle}`;
+  const cachedData = cache.get(cacheKey);
+  if (cachedData) return cachedData;
+
+  // Build empty 365-day grid
+  const today = new Date();
+  const dateMap = {};
+  for (let i = 365; i >= 0; i--) {
+    const d = new Date(today);
+    d.setDate(today.getDate() - i);
+    const key = d.toISOString().split('T')[0];
+    dateMap[key] = 0;
+  }
+
+  try {
+    // Fetch GitHub events and LeetCode calendar in parallel via backend proxies
+    const [ghRes, lcRes] = await Promise.all([
+      githubHandle
+        ? fetch(`${API_BASE_URL}/github-events/${githubHandle}`).catch(() => null)
+        : null,
+      leetcodeHandle
+        ? fetch(`${API_BASE_URL}/leetcode-calendar/${leetcodeHandle}`).catch(() => null)
+        : null
+    ]);
+
+    // Merge GitHub events
+    if (ghRes && ghRes.ok) {
+      try {
+        const ghData = await ghRes.json();
+        if (ghData.success && ghData.events) {
+          Object.entries(ghData.events).forEach(([date, count]) => {
+            if (dateMap.hasOwnProperty(date)) {
+              dateMap[date] += count;
+            }
+          });
+        }
+      } catch (e) { console.warn('GitHub heatmap parse error:', e); }
+    }
+
+    // Merge LeetCode calendar
+    if (lcRes && lcRes.ok) {
+      try {
+        const lcData = await lcRes.json();
+        if (lcData.success && lcData.calendar) {
+          // The calendar comes as submissionCalendar: { "unix_timestamp": count }
+          const cal = lcData.calendar.submissionCalendar;
+          if (cal) {
+            const parsed = typeof cal === 'string' ? JSON.parse(cal) : cal;
+            Object.entries(parsed).forEach(([ts, count]) => {
+              const date = new Date(parseInt(ts) * 1000).toISOString().split('T')[0];
+              if (dateMap.hasOwnProperty(date)) {
+                dateMap[date] += count;
+              }
+            });
+          }
+        }
+      } catch (e) { console.warn('LeetCode calendar parse error:', e); }
+    }
+  } catch (err) {
+    console.warn('Heatmap fetch failed, returning partial data:', err);
+  }
+
+  // Convert to array format
+  const heatmapData = Object.entries(dateMap)
+    .sort(([a], [b]) => a.localeCompare(b))
+    .map(([date, count]) => ({ date, count }));
+
+  // Only cache if we got real data (at least some non-zero entries)
+  const hasRealData = heatmapData.some(d => d.count > 0);
+  if (hasRealData) {
+    cache.set(cacheKey, heatmapData, 30 * 60 * 1000);
+  }
+
+  return heatmapData;
+};
+
 // 3. Contests Schedule Aggregator
 export const fetchUpcomingContests = async () => {
   const cacheKey = 'upcoming_contests';

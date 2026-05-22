@@ -2,9 +2,11 @@ import React, { useState, useEffect } from 'react';
 import { 
   fetchGithubProfile, 
   fetchCodeforcesProfile, 
-  fetchLeetcodeProfile 
+  fetchLeetcodeProfile,
+  fetchCodechefProfile,
+  fetchRealHeatmap
 } from '../services/api';
-import { generateMockHeatmap, generateMockRatingHistory, generateMockProfile } from '../services/mockData';
+import { generateMockHeatmap, generateMockRatingHistory } from '../services/mockData';
 import { 
   Code2, 
   Award, 
@@ -34,11 +36,15 @@ export default function Dashboard({ handles }) {
       data.codeforces = await fetchCodeforcesProfile(handles.codeforces);
       data.leetcode = await fetchLeetcodeProfile(handles.leetcode);
       
-      // CodeChef is purely mocked/simulated since it lacks a CORS API
-      data.codechef = generateMockProfile('codechef', handles.codechef);
+      // CodeChef via backend proxy (real data with fallback)
+      data.codechef = await fetchCodechefProfile(handles.codechef);
 
       setProfiles(data);
-      setHeatmap(generateMockHeatmap());
+
+      // Fetch real heatmap from GitHub events + LeetCode calendar
+      const realHeatmap = await fetchRealHeatmap(handles.github, handles.leetcode);
+      const hasRealActivity = realHeatmap.some(d => d.count > 0);
+      setHeatmap(hasRealActivity ? realHeatmap : generateMockHeatmap());
       
       const activeProfile = data[activeChartTab];
       if (activeProfile && Array.isArray(activeProfile.contestHistory) && activeProfile.contestHistory.length > 0) {

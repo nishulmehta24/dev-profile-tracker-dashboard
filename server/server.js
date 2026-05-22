@@ -64,6 +64,74 @@ app.get('/api/leetcode-proxy/:handle', async (req, res) => {
   }
 });
 
+// LeetCode Calendar Proxy (for real heatmap data)
+app.get('/api/leetcode-calendar/:handle', async (req, res) => {
+  const { handle } = req.params;
+  try {
+    const calRes = await fetch(`https://alfa-leetcode-api.onrender.com/${handle}/calendar`);
+    if (!calRes.ok) {
+      return res.status(404).json({ success: false, error: 'LeetCode calendar not found' });
+    }
+    const calData = await calRes.json();
+    res.json({ success: true, calendar: calData });
+  } catch (error) {
+    console.error('LeetCode calendar proxy error:', error);
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
+// GitHub Events Proxy (for real heatmap contribution data)
+app.get('/api/github-events/:handle', async (req, res) => {
+  const { handle } = req.params;
+  try {
+    // GitHub Events API returns last 90 days, up to 300 events across 3 pages
+    const pages = await Promise.all([
+      fetch(`https://api.github.com/users/${handle}/events?per_page=100&page=1`),
+      fetch(`https://api.github.com/users/${handle}/events?per_page=100&page=2`),
+      fetch(`https://api.github.com/users/${handle}/events?per_page=100&page=3`)
+    ]);
+
+    let allEvents = [];
+    for (const page of pages) {
+      if (page.ok) {
+        const data = await page.json();
+        if (Array.isArray(data)) allEvents = allEvents.concat(data);
+      }
+    }
+
+    // Group events by date
+    const eventsByDate = {};
+    allEvents.forEach(event => {
+      const date = event.created_at ? event.created_at.split('T')[0] : null;
+      if (date) {
+        eventsByDate[date] = (eventsByDate[date] || 0) + 1;
+      }
+    });
+
+    res.json({ success: true, events: eventsByDate });
+  } catch (error) {
+    console.error('GitHub events proxy error:', error);
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
+// CodeChef Profile Proxy (CodeChef has no public CORS-friendly API)
+app.get('/api/codechef-proxy/:handle', async (req, res) => {
+  const { handle } = req.params;
+  try {
+    const profileRes = await fetch(`https://codechef-api.vercel.app/handle/${handle}`);
+    if (!profileRes.ok) {
+      return res.status(404).json({ success: false, error: 'CodeChef profile not found' });
+    }
+    const data = await profileRes.json();
+    res.json({ success: true, data });
+  } catch (error) {
+    console.error('CodeChef proxy error:', error);
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
+
 // Public Health Check Status Endpoint (Pinged by Frontend Settings)
 app.get('/api/status', (req, res) => {
   const dbState = require('mongoose').connection.readyState;
