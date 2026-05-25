@@ -123,3 +123,8 @@ The repository contains an automated GitHub Actions workflow inside `.github/wor
 3. Select "Node" as the environment, set Build Command to `npm install`, and Start Command to `npm start`.
 4. In Environment Variables, add `MONGO_URI` (from MongoDB Atlas) and `JWT_SECRET`. Click deploy!
 5. In your frontend Settings page, paste your live Render server URL. They are now linked in the cloud!
+
+
+
+
+devloped by yash Agarwal and Nishul Mehta 
